@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import bajaData from '../../baja-data.json';
 import {
@@ -25,8 +25,15 @@ interface TeamStats {
   totalPoints: number;
 }
 
+interface TeamData {
+  Overall?: {
+    School?: string;
+    team_key?: string;
+    'Overall (1000)'?: number;
+  };
+}
+
 export function MostConsistentPrograms() {
-  const [teamStats, setTeamStats] = useState<TeamStats[]>([]);
   const [sortColumn, setSortColumn] = useState<keyof TeamStats>('totalPoints');
   const [sortDirection, setSortDirection] = useState('desc');
 
@@ -41,7 +48,7 @@ export function MostConsistentPrograms() {
       const competitionYear = competitionYearMatch ? parseInt(competitionYearMatch[0]) : 0;
 
       const competitionData = jsonData[competition as keyof typeof jsonData];
-      for (const team of Object.values(competitionData)) {
+      for (const team of Object.values(competitionData) as TeamData[]) {
         if (team && team.Overall && team.Overall.School && team.Overall.team_key) {
           const schoolName = team.Overall.School;
           const teamName = team.Overall.team_key;

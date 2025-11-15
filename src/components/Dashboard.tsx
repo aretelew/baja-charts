@@ -43,8 +43,8 @@ export function Dashboard() {
       const initialSchool = "Case Western Reserve University";
       setSelectedSchool(initialSchool);
 
-      const competitionsForSchool = Object.keys(bajaData).filter(comp => 
-        Object.values(bajaData[comp as keyof typeof bajaData]).some((team: TeamData) => team.Overall.School === initialSchool)
+      const competitionsForSchool = Object.keys(bajaData).filter(comp =>
+        (Object.values(bajaData[comp as keyof typeof bajaData]) as TeamData[]).some(team => team.Overall.School === initialSchool)
       );
       setCompetitions(competitionsForSchool);
       if (competitionsForSchool.length > 0) {
@@ -55,8 +55,8 @@ export function Dashboard() {
 
   useEffect(() => {
     if (selectedSchool && data) {
-      const competitionsForSchool = Object.keys(data).filter(comp => 
-        Object.values(data[comp as keyof typeof data]).some((team: TeamData) => team.Overall.School === selectedSchool)
+      const competitionsForSchool = Object.keys(data).filter(comp =>
+        (Object.values(data[comp as keyof typeof data]) as TeamData[]).some(team => team.Overall.School === selectedSchool)
       );
       setCompetitions(competitionsForSchool);
 
@@ -112,12 +112,10 @@ export function Dashboard() {
         )}
 
         {activeView === "compare" && (
-          <ComparisonView 
+          <ComparisonView
             schools={schools}
             selectedCompetition={selectedCompetition}
-            setSelectedCompetition={setSelectedCompetition}
             selectedSchool={selectedSchool}
-            setSelectedSchool={setSelectedSchool}
           />
         )}
       </main>

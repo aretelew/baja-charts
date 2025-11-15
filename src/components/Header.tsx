@@ -4,8 +4,8 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
+import { navigationMenuTriggerStyle } from "@/components/ui/navigation-menu-utils"
 import { ThemeToggle } from "./ThemeToggle"
 import { TrendingUp } from "lucide-react"
 

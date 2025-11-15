@@ -32,7 +32,7 @@ export function TeamSelectionCard({
           <Combobox
             options={schools}
             value={selectedSchool}
-            onChange={(value) => setSelectedSchool(value || "")}
+            onChange={(value) => setSelectedSchool(typeof value === 'string' ? value : value?.[0] || "")}
             placeholder="Select School"
             searchPlaceholder="Search schools..."
             noResultsText="No schools found."

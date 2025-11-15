@@ -11,6 +11,24 @@ interface Team {
   teamKey: string;
 }
 
+interface TeamData {
+  Overall?: Record<string, unknown>;
+  [key: string]: Record<string, unknown> | undefined;
+}
+
+interface CompetitionData {
+  [teamId: string]: TeamData;
+}
+
+type BajaData = Record<string, CompetitionData>;
+
+interface LabelListProps {
+  x?: string | number;
+  y?: string | number;
+  width?: string | number;
+  payload?: Record<string, unknown>;
+}
+
 interface CategoryPerformanceComparisonProps {
   teams: Team[];
 }
@@ -73,7 +91,7 @@ function coerceNumber(value: unknown): number | null {
   return null;
 }
 
-function readOverallPoints(teamData: any, category: string): number | null {
+function readOverallPoints(teamData: TeamData, category: string): number | null {
   const overall = teamData?.Overall;
   if (!overall) return null;
   const aliases = CATEGORY_ALIASES[category]?.overallKeys ?? [];
@@ -84,7 +102,7 @@ function readOverallPoints(teamData: any, category: string): number | null {
   return null;
 }
 
-function readSectionPoints(teamData: any, category: string): number | null {
+function readSectionPoints(teamData: TeamData, category: string): number | null {
   const aliasCfg = CATEGORY_ALIASES[category];
   if (!aliasCfg) return null;
   for (const sectionKey of aliasCfg.sectionKeys) {
@@ -101,7 +119,7 @@ function readSectionPoints(teamData: any, category: string): number | null {
   return null;
 }
 
-function getScore(teamData: any, category: string): number {
+function getScore(teamData: TeamData, category: string): number {
   if (!teamData) return 0;
 
   const maxPoints = EVENT_POINTS[category];
@@ -113,8 +131,8 @@ function getScore(teamData: any, category: string): number {
   return (points / maxPoints) * 100;
 }
 
-function resolveCompetitionData(competitionKey: string): any | null {
-  const dataAny = bajaData as any;
+function resolveCompetitionData(competitionKey: string): CompetitionData | null {
+  const dataAny = bajaData as BajaData;
   // Exact
   if (dataAny[competitionKey]) return dataAny[competitionKey];
   // Trimmed
@@ -126,12 +144,15 @@ function resolveCompetitionData(competitionKey: string): any | null {
   return matchKey ? dataAny[matchKey] : null;
 }
 
-function findTeamDataInCompetition(competitionData: any, teamKey: string): any | null {
+function findTeamDataInCompetition(competitionData: CompetitionData, teamKey: string): TeamData | null {
   const trimmedTeamKey = (teamKey ?? "").trim();
-  const values: any[] = Object.values(competitionData ?? {});
-  let found = values.find((t: any) => t?.Overall?.team_key === teamKey);
+  const values: TeamData[] = Object.values(competitionData ?? {});
+  let found = values.find((t: TeamData) => t?.Overall?.team_key === teamKey);
   if (found) return found;
-  found = values.find((t: any) => (t?.Overall?.team_key ?? "").trim() === trimmedTeamKey);
+  found = values.find((t: TeamData) => {
+    const key = t?.Overall?.team_key;
+    return typeof key === 'string' && key.trim() === trimmedTeamKey;
+  });
   return found ?? null;
 }
 
@@ -148,7 +169,7 @@ export function CategoryPerformanceComparison({ teams = [] }: CategoryPerformanc
         const competitionData = resolveCompetitionData(team.competition);
         if (competitionData) {
           const teamData = findTeamDataInCompetition(competitionData, team.teamKey);
-          const rawScore = getScore(teamData, category);
+          const rawScore = teamData ? getScore(teamData, category) : 0;
           const cappedScore = Math.min(rawScore, 100);
           const overflowAmount = Math.max(0, rawScore - 100);
           entry[team.token] = cappedScore;
@@ -195,10 +216,10 @@ export function CategoryPerformanceComparison({ teams = [] }: CategoryPerformanc
           cursor={false}
           content={<ChartTooltipContent indicator="dashed" />}
         />
-        <ChartLegend content={((props: any) => <ChartLegendContent {...props} />) as any} />
+        <ChartLegend content={(props: any) => <ChartLegendContent {...props} />} />
         {teams.map((team) => (
           <Bar key={team.token} dataKey={team.token} fill={chartConfig[team.token]?.color} radius={4}>
-            <LabelList content={(props: any) => (
+            <LabelList content={(props: LabelListProps) => (
               <OverflowMarker
                 {...props}
                 teamToken={team.token}
@@ -212,17 +233,21 @@ export function CategoryPerformanceComparison({ teams = [] }: CategoryPerformanc
   );
 }
 
-function OverflowMarker(props: any & { teamToken: string; color: string }) {
+function OverflowMarker(props: LabelListProps & { teamToken: string; color: string }) {
   const { x, y, width, payload, teamToken, color } = props;
   const overflowAmount = (payload?.[`${teamToken}__overflow`] ?? 0) as number;
-  if (!overflowAmount || x == null || y == null || width == null) return null;
+  const numX = typeof x === 'number' ? x : parseFloat(String(x));
+  const numY = typeof y === 'number' ? y : parseFloat(String(y));
+  const numWidth = typeof width === 'number' ? width : parseFloat(String(width));
 
-  const centerX = x + width / 2;
+  if (!overflowAmount || isNaN(numX) || isNaN(numY) || isNaN(numWidth)) return null;
+
+  const centerX = numX + numWidth / 2;
   const markerHeight = 8;
   const markerWidth = 10;
   const offset = 4; // small gap above the bar top
 
-  const pathD = `M ${centerX} ${y - offset} l ${markerWidth / 2} ${markerHeight} l -${markerWidth} 0 z`;
+  const pathD = `M ${centerX} ${numY - offset} l ${markerWidth / 2} ${markerHeight} l -${markerWidth} 0 z`;
 
   return (
     <g pointerEvents="none">

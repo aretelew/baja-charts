@@ -5,27 +5,22 @@ import bajaData from "../../baja-data.json"
 import { useMemo, useState } from "react"
 import { TeamCard } from "./TeamCard"
 
+type TeamData = { Overall: { School: string; team_key: string } }
+type BajaData = Record<string, Record<string, TeamData>>
+type SelectedTeam = { token: string; competition: string; school: string; teamKey: string }
+
 interface ComparisonViewProps {
-  schools: { value: string; label: string }[]
-  selectedCompetition: string
-  setSelectedCompetition: (competition: string) => void
-  selectedSchool: string
-  setSelectedSchool: (school: string) => void
+  schools?: { value: string; label: string }[]
+  selectedCompetition?: string
+  selectedSchool?: string
 }
 
-export function ComparisonView({
-  schools,
-  selectedCompetition,
-  setSelectedCompetition,
-  selectedSchool,
-  setSelectedSchool,
-}: ComparisonViewProps) {
-  const [selectedTeams, setSelectedTeams] = useState<{ token: string; competition: string; school: string; teamKey: string }[]>([])
+export function ComparisonView(_props: ComparisonViewProps) {
+  const [selectedTeams, setSelectedTeams] = useState<SelectedTeam[]>([])
   const options = useMemo(() => {
-    type TeamData = { Overall: { School: string; team_key: string } }
     const entries: { value: string; label: string }[] = []
-    Object.keys(bajaData as Record<string, Record<string, TeamData>>).forEach((competition) => {
-      const teamsForComp = (bajaData as any)[competition] as Record<string, TeamData>
+    Object.keys(bajaData as BajaData).forEach((competition) => {
+      const teamsForComp = (bajaData as BajaData)[competition] as Record<string, TeamData>
       Object.values(teamsForComp).forEach((team) => {
         const school = team.Overall.School
         const teamKey = team.Overall.team_key
@@ -36,11 +31,6 @@ export function ComparisonView({
     })
     return entries.sort((a, b) => a.label.localeCompare(b.label))
   }, [])
-
-  const currentValue = useMemo(() => {
-    const teamKey = schools.find((s) => s.value === selectedSchool)?.label ?? selectedSchool
-    return makeToken(selectedCompetition, selectedSchool, teamKey)
-  }, [selectedCompetition, selectedSchool, schools])
 
   return (
     <div className="space-y-6">
@@ -53,8 +43,9 @@ export function ComparisonView({
               options={options}
               value={selectedTeams.map(t => t.token)}
               onChange={(tokens) => {
-                const newSelectedTeams = tokens.map(token => {
-                  const existing = selectedTeams.find(t => t.token === token);
+                const tokenArray = Array.isArray(tokens) ? tokens : tokens ? [tokens] : [];
+                const newSelectedTeams = tokenArray.map((token: string) => {
+                  const existing = selectedTeams.find((t: SelectedTeam) => t.token === token);
                   if (existing) return existing;
 
                   const parsed = parseToken(token);
@@ -66,7 +57,7 @@ export function ComparisonView({
                     school: parsed.school,
                     teamKey: parsed.teamKey,
                   };
-                }).filter(Boolean) as { token: string; competition: string; school: string; teamKey: string }[];
+                }).filter(Boolean) as SelectedTeam[];
 
                 setSelectedTeams(newSelectedTeams);
               }}
@@ -84,7 +75,7 @@ export function ComparisonView({
             <div className="text-sm text-muted-foreground">No teams added yet.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedTeams.map((item) => (
+              {selectedTeams.map((item: SelectedTeam) => (
                 <TeamCard
                   key={item.token}
                   teamName={extractTeamName(item.teamKey)}

@@ -132,8 +132,8 @@ export function TrendAnalysis() {
               tickFormatter={(value) => value.slice(-4)}
             />
             <YAxis />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            <ChartLegend content={<ChartLegendContent />} />
+            <ChartTooltip cursor={false} content={(props: any) => <ChartTooltipContent {...props} />} />
+            <ChartLegend content={(props: any) => <ChartLegendContent {...props} />} />
             {topTeams.map((teamName, index) => (
               <Line
                 key={teamName}

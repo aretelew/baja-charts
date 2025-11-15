@@ -8,12 +8,33 @@ import { Line, LineChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } fro
 import { BajaDynamicRadarChart } from "./BajaDynamicRadarChart"
 import { BajaStaticRadarChart } from "./BajaStaticRadarChart"
 
+type OverallData = {
+  "School": string;
+  "Rank": number;
+  "Business Presentation (50)": number;
+  "Cost Event (100)": number;
+  "Design (150)": number;
+  "Acceleration (75)": number;
+  "Maneuverability (75)": number;
+  "Hill Climb (75)": number;
+  "Suspension & Traction (75)": number;
+  "Endurance (400)": number;
+};
+
 interface Team {
   Overall: {
     School: string;
     team_key: string;
     "Overall (1000)": number;
-  };
+  } & Partial<OverallData>;
+}
+
+interface CompetitionData {
+  competition: string;
+  score: number;
+  year: string | null;
+  team_key: string | null;
+  fullData: Team | undefined;
 }
 
 export function TeamPerformance({ selectedSchool, selectedCompetition: currentCompetition }: { selectedSchool: string, selectedCompetition: string }) { 
@@ -27,14 +48,14 @@ export function TeamPerformance({ selectedSchool, selectedCompetition: currentCo
     if (!selectedSchool) return [];
     return allCompetitions.map(comp => {
       const teams = bajaData[comp as keyof typeof bajaData];
-      const teamData = Object.values(teams).find((t: Team) => t.Overall && t.Overall.School === selectedSchool);
+      const teamData = (Object.values(teams) as Team[]).find(t => t.Overall && t.Overall.School === selectedSchool);
       const yearMatch = comp.match(/\d{4}/);
       const year = yearMatch ? yearMatch[0] : null;
       return {
         competition: comp,
-        score: teamData ? teamData.Overall["Overall (1000)"] : 0,
+        score: teamData ? (teamData.Overall["Overall (1000)"] as number) : 0,
         year: year,
-        team_key: teamData ? teamData.Overall.team_key : null,
+        team_key: teamData ? (teamData.Overall.team_key as string) : null,
         fullData: teamData,
       };
     });
@@ -43,7 +64,7 @@ export function TeamPerformance({ selectedSchool, selectedCompetition: currentCo
   // For team stats, we only consider competitions they participated in.
   const teamPerformanceStats = useMemo(() => chartData.filter(d => d.score !== 0), [chartData]);
 
-  const [selectedCompetition, setSelectedCompetition] = useState<{ competition: string; score: number | null; year: string | null; team_key: string | null; fullData: Team | { Overall: { School: string; team_key: string; "Overall (1000)": number; }; }; } | undefined>();
+  const [selectedCompetition, setSelectedCompetition] = useState<CompetitionData | undefined>();
 
   useEffect(() => {
     if (currentCompetition) {
@@ -167,10 +188,10 @@ export function TeamPerformance({ selectedSchool, selectedCompetition: currentCo
         </div>
         <div className="mt-4 grid grid-cols-2 gap-6">
           <div>
-            {selectedCompetition?.fullData?.Overall && <BajaDynamicRadarChart overallData={selectedCompetition.fullData.Overall} />}
+            {selectedCompetition?.fullData?.Overall && <BajaDynamicRadarChart overallData={selectedCompetition.fullData.Overall as OverallData} />}
           </div>
           <div>
-            {selectedCompetition?.fullData?.Overall && <BajaStaticRadarChart overallData={selectedCompetition.fullData.Overall} />}
+            {selectedCompetition?.fullData?.Overall && <BajaStaticRadarChart overallData={selectedCompetition.fullData.Overall as OverallData} />}
           </div>
         </div>
         <div className="text-muted-foreground text-center pt-4">

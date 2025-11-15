@@ -32,6 +32,13 @@ interface RawTeam {
   };
 }
 
+interface LabelProps {
+  x?: string | number;
+  y?: string | number;
+  height?: string | number;
+  index?: number;
+}
+
 const chartConfig = {
   Endurance: {
     label: 'Endurance Score',
@@ -39,10 +46,13 @@ const chartConfig = {
   },
 };
 
-const CustomBarLabel = (props: { x: number; y: number; height: number; data: TeamData[], index: number }) => {
-  const { x, y, height, data, index } = props;
-  const entry = data[index];
-  return <text x={x + 10} y={y + height / 2} fill="#fff" textAnchor="start" dominantBaseline="middle">{entry.Canonical_Team}</text>;
+const CustomBarLabel = (data: TeamData[]) => (props: LabelProps) => {
+  const { x, y, height, index } = props;
+  const entry = data[index ?? 0];
+  const numX = typeof x === 'number' ? x : parseFloat(String(x || 0));
+  const numY = typeof y === 'number' ? y : parseFloat(String(y || 0));
+  const numHeight = typeof height === 'number' ? height : parseFloat(String(height || 0));
+  return <text x={numX + 10} y={numY + numHeight / 2} fill="#fff" textAnchor="start" dominantBaseline="middle">{entry?.Canonical_Team}</text>;
 };
 
 export function Top10Endurance({ selectedCompetition, selectedSchool }: { selectedCompetition: string, selectedSchool: string }) {
@@ -52,9 +62,9 @@ export function Top10Endurance({ selectedCompetition, selectedSchool }: { select
     if (selectedCompetition) {
       const competitionData =
         bajaData[selectedCompetition as keyof typeof bajaData];
-      const top10 = Object.values(competitionData ?? {})
-        .filter((team: RawTeam) => team && team.Endurance)
-        .map((team: RawTeam) => {
+      const top10 = (Object.values(competitionData ?? {}) as RawTeam[])
+        .filter((team) => team && team.Endurance)
+        .map((team) => {
           const school = team.Overall.School;
           const team_key = team.Overall.team_key;
           const teamName = team_key.replace(school + ' - ', '');
@@ -108,7 +118,7 @@ export function Top10Endurance({ selectedCompetition, selectedSchool }: { select
                 }}
               />}
             />
-            <Bar dataKey="Endurance (400)" radius={4} label={<CustomBarLabel data={chartData} />}>
+            <Bar dataKey="Endurance (400)" radius={4} label={CustomBarLabel(chartData)}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={'var(--chart-1)'} stroke={entry.school === selectedSchool ? 'var(--selected-border-color)' : 'transparent'} strokeWidth={2} />
               ))}
