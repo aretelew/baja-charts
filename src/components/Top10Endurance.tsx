@@ -50,8 +50,9 @@ export function Top10Endurance({ selectedCompetition, selectedSchool }: { select
 
   useEffect(() => {
     if (selectedCompetition) {
-      const competitionData = bajaData[selectedCompetition as keyof typeof bajaData];
-      const top10 = Object.values(competitionData)
+      const competitionData =
+        bajaData[selectedCompetition as keyof typeof bajaData];
+      const top10 = Object.values(competitionData ?? {})
         .filter((team: RawTeam) => team && team.Endurance)
         .map((team: RawTeam) => {
           const school = team.Overall.School;

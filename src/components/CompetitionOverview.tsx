@@ -30,6 +30,8 @@ interface RawTeam {
   };
 }
 
+type CompetitionTeams = Record<string, RawTeam>;
+
 const chartConfig = {
   Overall: {
     label: 'Overall Score',
@@ -37,10 +39,37 @@ const chartConfig = {
   },
 };
 
-const CustomBarLabel = (props: { x: number; y: number; height: number; data: TeamData[], index: number }) => {
-  const { x, y, height, data, index } = props;
+interface CustomBarLabelProps {
+  x?: number;
+  y?: number;
+  height?: number;
+  data: TeamData[];
+  index?: number;
+}
+
+const CustomBarLabel = ({
+  x = 0,
+  y = 0,
+  height = 0,
+  data,
+  index = 0,
+}: CustomBarLabelProps) => {
   const entry = data[index];
-  return <text x={x + 10} y={y + height / 2} fill="#fff" textAnchor="start" dominantBaseline="middle">{entry.Canonical_Team}</text>;
+  if (!entry) {
+    return null;
+  }
+
+  return (
+    <text
+      x={x + 10}
+      y={y + height / 2}
+      fill="#fff"
+      textAnchor="start"
+      dominantBaseline="middle"
+    >
+      {entry.Canonical_Team}
+    </text>
+  );
 };
 
 export function CompetitionOverview({ selectedCompetition, selectedSchool }: { selectedCompetition: string, selectedSchool: string }) {
@@ -48,23 +77,25 @@ export function CompetitionOverview({ selectedCompetition, selectedSchool }: { s
 
   useEffect(() => {
     if (selectedCompetition) {
-      const competitionData = bajaData[selectedCompetition as keyof typeof bajaData];
-      const top10 = Object.values(competitionData)
-        .filter((team: RawTeam) => team && team.Overall)
-        .map((team: RawTeam) => {
+      const competitionData =
+        bajaData[selectedCompetition as keyof typeof bajaData] as CompetitionTeams | undefined;
+      const teamEntries = competitionData ? Object.values(competitionData) : [];
+      const top10 = teamEntries
+        .filter((team) => team?.Overall)
+        .map((team) => {
           const school = team.Overall.School;
           const team_key = team.Overall.team_key;
           const teamName = team_key.replace(school + ' - ', '');
           return {
-            'Canonical_Team': teamName,
+            Canonical_Team: teamName,
             'Overall (1000)': team.Overall['Overall (1000)'],
-            'team_key': team_key,
-            'school': school,
-          }
+            team_key,
+            school,
+          };
         })
         .sort((a, b) => b['Overall (1000)'] - a['Overall (1000)'])
         .slice(0, 10);
-      setChartData(top10 as TeamData[]);
+      setChartData(top10);
     }
   }, [selectedCompetition]);
 

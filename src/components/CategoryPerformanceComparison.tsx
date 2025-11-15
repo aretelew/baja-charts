@@ -34,29 +34,105 @@ const EVENT_POINTS: { [key: string]: number } = {
   "Endurance": 400,
 };
 
+// Normalize across many historical schema variants
+const CATEGORY_ALIASES: Record<string, { overallKeys: string[]; sectionKeys: string[]; scoreKeys: string[] }> = {
+  "Acceleration": {
+    overallKeys: ["Acceleration (75)"],
+    sectionKeys: ["Acceleration", "Accel"],
+    scoreKeys: ["Acceleration Score (75)", "Score", "score"],
+  },
+  "Maneuverability": {
+    overallKeys: ["Maneuverability (75)", "Land Manuverability (75)"],
+    sectionKeys: ["Maneuverability", "Manv"],
+    scoreKeys: ["Maneuverability Score (75)", "Land Manuverability Score (75)", "Score", "score"],
+  },
+  "Hill Climb": {
+    overallKeys: ["Hill Climb (75)"],
+    sectionKeys: ["Hill Climb", "Hill"],
+    scoreKeys: ["Hill Climb Score (75)", "Score", "score"],
+  },
+  "Suspension": {
+    overallKeys: ["Suspension & Traction (75)"],
+    sectionKeys: ["Suspension & Traction", "S&T"],
+    scoreKeys: ["Suspension & Traction Score (75)", "Score", "score"],
+  },
+  "Rock Crawl": {
+    overallKeys: ["Rock Crawl (75)"],
+    sectionKeys: ["Rock Crawl"],
+    scoreKeys: ["Rock Crawl Score (75)", "Score", "score"],
+  },
+  "Endurance": {
+    overallKeys: ["Endurance (400)", "Endurance Race (400)"],
+    sectionKeys: ["Endurance"],
+    scoreKeys: ["Endurance Race Score (400)", "Points (400)", "Points", "Score", "score"],
+  },
+};
+
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  return null;
+}
+
+function readOverallPoints(teamData: any, category: string): number | null {
+  const overall = teamData?.Overall;
+  if (!overall) return null;
+  const aliases = CATEGORY_ALIASES[category]?.overallKeys ?? [];
+  for (const key of aliases) {
+    const val = coerceNumber(overall[key as keyof typeof overall]);
+    if (val != null) return val;
+  }
+  return null;
+}
+
+function readSectionPoints(teamData: any, category: string): number | null {
+  const aliasCfg = CATEGORY_ALIASES[category];
+  if (!aliasCfg) return null;
+  for (const sectionKey of aliasCfg.sectionKeys) {
+    const section = teamData?.[sectionKey];
+    if (!section) continue;
+    for (const scoreKey of aliasCfg.scoreKeys) {
+      const val = coerceNumber(section[scoreKey as keyof typeof section]);
+      if (val != null) return val;
+    }
+    // Generic fallback: find first numeric key that includes "Score"
+    const candidate = Object.entries(section).find(([k, v]) => /score/i.test(k) && typeof v === "number");
+    if (candidate && typeof candidate[1] === "number") return candidate[1] as number;
+  }
+  return null;
+}
+
 function getScore(teamData: any, category: string): number {
   if (!teamData) return 0;
-
-  // The category names in the JSON data are sometimes different from the ones we use
-  let categoryKey = category;
-  if (category === "Suspension") {
-    categoryKey = "Suspension & Traction";
-  }
-
-  const categoryData = teamData[categoryKey];
-  if (!categoryData) return 0;
-
-  let score = 0;
-  if (category === "Endurance") {
-    score = categoryData["Points (400)"] || 0;
-  } else {
-    score = categoryData.Score || categoryData.score || 0;
-  }
 
   const maxPoints = EVENT_POINTS[category];
   if (!maxPoints) return 0;
 
-  return (score / maxPoints) * 100;
+  // Prefer explicit event sections, then fall back to Overall aggregates
+  const sectionPoints = readSectionPoints(teamData, category);
+  const points = sectionPoints ?? readOverallPoints(teamData, category) ?? 0;
+  return (points / maxPoints) * 100;
+}
+
+function resolveCompetitionData(competitionKey: string): any | null {
+  const dataAny = bajaData as any;
+  // Exact
+  if (dataAny[competitionKey]) return dataAny[competitionKey];
+  // Trimmed
+  const trimmed = competitionKey.trim();
+  if (dataAny[trimmed]) return dataAny[trimmed];
+  // Case-insensitive + trimmed match across keys
+  const target = trimmed.toLowerCase();
+  const matchKey = Object.keys(dataAny).find(k => k.trim().toLowerCase() === target);
+  return matchKey ? dataAny[matchKey] : null;
+}
+
+function findTeamDataInCompetition(competitionData: any, teamKey: string): any | null {
+  const trimmedTeamKey = (teamKey ?? "").trim();
+  const values: any[] = Object.values(competitionData ?? {});
+  let found = values.find((t: any) => t?.Overall?.team_key === teamKey);
+  if (found) return found;
+  found = values.find((t: any) => (t?.Overall?.team_key ?? "").trim() === trimmedTeamKey);
+  return found ?? null;
 }
 
 export function CategoryPerformanceComparison({ teams = [] }: CategoryPerformanceComparisonProps) {
@@ -68,10 +144,10 @@ export function CategoryPerformanceComparison({ teams = [] }: CategoryPerformanc
     return EVENT_CATEGORIES.map(category => {
       const entry: { [key: string]: string | number } = { category };
       teams.forEach(team => {
-        // Some competition keys in the dataset may have trailing spaces or alternate spellings
-        const competitionData = (bajaData as any)[team.competition] ?? (bajaData as any)[team.competition.trim()];
+        // Resolve competition with potential trailing spaces or minor variants
+        const competitionData = resolveCompetitionData(team.competition);
         if (competitionData) {
-          const teamData = Object.values(competitionData).find((t: any) => t.Overall.team_key === team.teamKey);
+          const teamData = findTeamDataInCompetition(competitionData, team.teamKey);
           const rawScore = getScore(teamData, category);
           const cappedScore = Math.min(rawScore, 100);
           const overflowAmount = Math.max(0, rawScore - 100);
